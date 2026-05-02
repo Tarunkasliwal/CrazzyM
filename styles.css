@@ -613,8 +613,32 @@ select {
   color: var(--muted);
 }
 
-.playlist-form {
+.playlist-form,
+.discover-form {
   gap: 10px;
+}
+
+.discover-form {
+  display: flex;
+  align-items: center;
+  min-width: min(460px, 100%);
+}
+
+.discover-form input {
+  width: 100%;
+  border: 1px solid var(--line);
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  padding: 11px 12px;
+  outline: none;
+}
+
+.discover-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
 }
 
 .playlist-card {
@@ -767,6 +791,13 @@ select {
 
 .settings-panel h3 {
   margin: 0;
+}
+
+.settings-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
 }
 
 .upload-grid label {
@@ -1026,7 +1057,8 @@ input[type="range"] {
     right: -18px;
   }
 
-  .playlist-form {
+  .playlist-form,
+  .discover-form {
     flex-direction: column;
   }
 }

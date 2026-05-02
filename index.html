@@ -37,6 +37,7 @@
           <button class="nav-tab active" type="button" data-view="library"><svg><use href="#icon-music"></use></svg>Library</button>
           <button class="nav-tab" type="button" data-view="liked"><svg><use href="#icon-heart"></use></svg>Liked</button>
           <button class="nav-tab" type="button" data-view="recent"><svg><use href="#icon-repeat"></use></svg>Recent</button>
+          <button class="nav-tab" type="button" data-view="discover"><svg><use href="#icon-search"></use></svg>Discover</button>
           <button class="nav-tab" type="button" data-view="playlists"><svg><use href="#icon-music"></use></svg>Playlists</button>
           <button class="nav-tab" type="button" data-view="queue"><svg><use href="#icon-plus"></use></svg>Queue</button>
           <button class="nav-tab" type="button" data-view="upload"><svg><use href="#icon-up"></use></svg>Upload</button>
@@ -138,6 +139,31 @@
           </div>
         </section>
 
+        <section class="view" id="discoverView" aria-labelledby="discoverHeading">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Online catalog</p>
+              <h2 id="discoverHeading">Discover free music</h2>
+            </div>
+            <form class="discover-form" id="discoverForm">
+              <input id="discoverSearchInput" type="search" placeholder="Search Jamendo tracks, artists, moods" />
+              <button class="primary-action compact" type="submit">Search</button>
+            </form>
+          </div>
+          <div class="discover-actions">
+            <button class="secondary-action compact" type="button" data-discover-tag="chill">Chill</button>
+            <button class="secondary-action compact" type="button" data-discover-tag="focus">Focus</button>
+            <button class="secondary-action compact" type="button" data-discover-tag="electronic">Electronic</button>
+            <button class="secondary-action compact" type="button" data-discover-tag="rock">Rock</button>
+          </div>
+          <p class="upload-note" id="discoverStatus">Add a Jamendo client ID in Settings, then search free tracks.</p>
+          <div class="track-list" id="discoverList"></div>
+          <div class="empty-state" id="discoverEmpty">
+            <strong>No online tracks loaded</strong>
+            <p>Search Jamendo to play free music without local uploads.</p>
+          </div>
+        </section>
+
         <section class="view" id="playlistsView" aria-labelledby="playlistHeading">
           <div class="section-head">
             <div>
@@ -236,6 +262,15 @@
                 <option value="clean">Clean</option>
                 <option value="sunset">Sunset</option>
               </select>
+            </section>
+            <section class="settings-panel">
+              <h3>Online music API</h3>
+              <label>
+                Jamendo client ID
+                <input id="jamendoClientIdInput" type="text" placeholder="Paste free Jamendo client id" />
+              </label>
+              <button class="secondary-action" type="button" id="saveApiSettingsButton">Save API settings</button>
+              <p class="settings-note">Jamendo is used for free online music search. Local uploads still work without this.</p>
             </section>
             <section class="settings-panel">
               <h3>Backup</h3>

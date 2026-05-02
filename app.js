@@ -9,6 +9,7 @@ const QUEUE_KEY = "pulsestream-queue";
 const state = {
   songs: [],
   playlists: [],
+  discoverResults: [],
   currentSongId: null,
   currentQueue: [],
   queue: [],
@@ -25,6 +26,7 @@ const state = {
   objectUrls: new Map(),
   settings: {
     theme: "dark",
+    jamendoClientId: "",
   },
 };
 
@@ -44,6 +46,7 @@ const els = {
     library: document.getElementById("libraryView"),
     liked: document.getElementById("likedView"),
     recent: document.getElementById("recentView"),
+    discover: document.getElementById("discoverView"),
     playlists: document.getElementById("playlistsView"),
     queue: document.getElementById("queueView"),
     upload: document.getElementById("uploadView"),
@@ -52,11 +55,13 @@ const els = {
   trackList: document.getElementById("trackList"),
   likedList: document.getElementById("likedList"),
   recentList: document.getElementById("recentList"),
+  discoverList: document.getElementById("discoverList"),
   playlistTracks: document.getElementById("playlistTracks"),
   queueList: document.getElementById("queueList"),
   libraryEmpty: document.getElementById("libraryEmpty"),
   likedEmpty: document.getElementById("likedEmpty"),
   recentEmpty: document.getElementById("recentEmpty"),
+  discoverEmpty: document.getElementById("discoverEmpty"),
   playlistEmpty: document.getElementById("playlistEmpty"),
   queueEmpty: document.getElementById("queueEmpty"),
   trackTemplate: document.getElementById("trackTemplate"),
@@ -96,6 +101,11 @@ const els = {
   themeSelect: document.getElementById("themeSelect"),
   exportBackupButton: document.getElementById("exportBackupButton"),
   importBackupInput: document.getElementById("importBackupInput"),
+  discoverForm: document.getElementById("discoverForm"),
+  discoverSearchInput: document.getElementById("discoverSearchInput"),
+  discoverStatus: document.getElementById("discoverStatus"),
+  jamendoClientIdInput: document.getElementById("jamendoClientIdInput"),
+  saveApiSettingsButton: document.getElementById("saveApiSettingsButton"),
   trackCount: document.getElementById("trackCount"),
   playlistCount: document.getElementById("playlistCount"),
   heroUploadButton: document.getElementById("heroUploadButton"),
@@ -207,6 +217,14 @@ function normalizedText(song) {
   return [song.title, song.artist, song.album, song.mood].join(" ").toLowerCase();
 }
 
+function allKnownSongs() {
+  return [...state.songs, ...state.discoverResults];
+}
+
+function findSong(songId) {
+  return allKnownSongs().find((song) => song.id === songId);
+}
+
 function filteredSongs(baseSongs = state.songs) {
   const query = state.search.trim().toLowerCase();
   let songs = query ? baseSongs.filter((song) => normalizedText(song).includes(query)) : [...baseSongs];
@@ -226,6 +244,7 @@ function filteredSongs(baseSongs = state.songs) {
 }
 
 function objectUrlFor(song) {
+  if (song.audioUrl) return song.audioUrl;
   if (!state.objectUrls.has(song.id)) state.objectUrls.set(song.id, URL.createObjectURL(song.blob));
   return state.objectUrls.get(song.id);
 }
@@ -362,6 +381,24 @@ function createTrackRow(song, queue, options = {}) {
   return row;
 }
 
+function createDiscoverRow(song) {
+  const row = createTrackRow(song, state.discoverResults, { onlinePreview: true });
+  const editButton = row.querySelector(".edit-button");
+  const removeButton = row.querySelector(".remove-button");
+  const queueButton = row.querySelector(".queue-button");
+  const addButton = editButton.cloneNode(true);
+
+  addButton.setAttribute("title", "Add to library");
+  addButton.setAttribute("aria-label", "Add online track to library");
+  addButton.addEventListener("click", () => addOnlineSongToLibrary(song.id));
+  setIcon(addButton, "icon-plus");
+  editButton.replaceWith(addButton);
+
+  queueButton.hidden = true;
+  removeButton.hidden = true;
+  return row;
+}
+
 function renderTracks() {
   const songs = filteredSongs();
   els.trackList.replaceChildren(...songs.map((song) => createTrackRow(song, songs)));
@@ -378,6 +415,9 @@ function renderTracks() {
   const queuedSongs = state.queue.map((id) => state.songs.find((song) => song.id === id)).filter(Boolean);
   els.queueList.replaceChildren(...queuedSongs.map((song) => createTrackRow(song, queuedSongs, { removeFromQueue: true })));
   els.queueEmpty.classList.toggle("show", queuedSongs.length === 0);
+
+  els.discoverList.replaceChildren(...state.discoverResults.map((song) => createDiscoverRow(song)));
+  els.discoverEmpty.classList.toggle("show", state.discoverResults.length === 0);
 }
 
 function renderPlaylists() {
@@ -423,7 +463,7 @@ function renderPlaylistDetail() {
 }
 
 function renderNowPlaying() {
-  const song = state.songs.find((item) => item.id === state.currentSongId);
+  const song = findSong(state.currentSongId);
   els.nowTitle.textContent = song ? song.title : "Nothing playing";
   els.nowArtist.textContent = song ? songSubtitle(song) : "Add a song and press play";
   setIcon(els.playButton, els.audio.paused ? "icon-play" : "icon-pause");
@@ -451,6 +491,7 @@ function render() {
   renderNowPlaying();
   renderCounts();
   els.themeSelect.value = state.settings.theme;
+  els.jamendoClientIdInput.value = state.settings.jamendoClientId || "";
 }
 
 async function deleteSong(songId) {
@@ -527,22 +568,100 @@ async function addFiles(files) {
   setView("library");
 }
 
+function mapJamendoTrack(track) {
+  return {
+    id: `jamendo-${track.id}`,
+    source: "jamendo",
+    externalId: track.id,
+    title: track.name || "Untitled track",
+    artist: track.artist_name || "Unknown artist",
+    album: track.album_name || "Jamendo",
+    mood: track.musicinfo?.tags?.genres?.[0] || "",
+    fileName: track.audiodownload || track.audio,
+    fileType: "online audio",
+    size: 0,
+    duration: Number(track.duration) || 0,
+    createdAt: Date.now(),
+    liked: false,
+    playCount: 0,
+    hookStart: null,
+    hookLength: null,
+    autoHookStart: null,
+    autoHookLength: null,
+    cover: track.album_image || track.image || "",
+    audioUrl: track.audio || track.audiodownload,
+    shareUrl: track.shareurl || "",
+  };
+}
+
+async function searchJamendo(query) {
+  const clientId = state.settings.jamendoClientId?.trim();
+  if (!clientId) {
+    els.discoverStatus.textContent = "Add your free Jamendo client ID in Settings before searching.";
+    setView("settings");
+    return;
+  }
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    format: "json",
+    limit: "20",
+    include: "musicinfo",
+    audioformat: "mp32",
+    order: "popularity_total",
+    search: query || "music",
+  });
+
+  els.discoverStatus.textContent = "Searching Jamendo...";
+  try {
+    const response = await fetch(`https://api.jamendo.com/v3.0/tracks/?${params.toString()}`);
+    if (!response.ok) throw new Error("Jamendo request failed.");
+    const data = await response.json();
+    state.discoverResults = (data.results || []).map(mapJamendoTrack).filter((song) => song.audioUrl);
+    els.discoverStatus.textContent = state.discoverResults.length
+      ? `Found ${state.discoverResults.length} free tracks.`
+      : "No Jamendo tracks found for that search.";
+    render();
+  } catch (error) {
+    console.error(error);
+    els.discoverStatus.textContent = "Could not fetch Jamendo tracks. Check your client ID and connection.";
+  }
+}
+
+async function addOnlineSongToLibrary(songId) {
+  const song = state.discoverResults.find((item) => item.id === songId);
+  if (!song) return;
+
+  const exists = state.songs.some((item) => item.source === "jamendo" && item.externalId === song.externalId);
+  if (exists) {
+    els.discoverStatus.textContent = "That online track is already in your library.";
+    return;
+  }
+
+  await putItem(SONG_STORE, { ...song, id: crypto.randomUUID(), createdAt: Date.now() });
+  els.discoverStatus.textContent = `"${song.title}" added to your library.`;
+  await hydrate();
+}
+
 function queueFromSongs(songs) {
   return songs.map((song) => song.id);
 }
 
 async function playSong(songId, queue = state.songs) {
-  const song = state.songs.find((item) => item.id === songId);
+  const song = findSong(songId);
   if (!song) return;
 
   state.currentSongId = song.id;
   state.currentQueue = Array.isArray(queue) && queue.length ? queueFromSongs(queue) : queueFromSongs(state.songs);
   state.fallbackStartedAt = 0;
 
-  song.playCount = (song.playCount || 0) + 1;
-  song.lastPlayedAt = Date.now();
-  await putItem(SONG_STORE, song);
-  addRecent(song.id);
+  const librarySong = state.songs.find((item) => item.id === song.id);
+  if (librarySong) {
+    librarySong.playCount = (librarySong.playCount || 0) + 1;
+    librarySong.lastPlayedAt = Date.now();
+    await putItem(SONG_STORE, librarySong);
+    addRecent(librarySong.id);
+  }
 
   els.audio.src = objectUrlFor(song);
   els.audio.addEventListener(
@@ -560,7 +679,8 @@ async function playSong(songId, queue = state.songs) {
     { once: true }
   );
   els.audio.play();
-  await hydrate();
+  if (librarySong) await hydrate();
+  else renderNowPlaying();
 }
 
 function addRecent(songId) {
@@ -593,7 +713,12 @@ async function analyzeSongHook(song) {
   if (!AudioContextClass) throw new Error("This browser does not support audio analysis.");
 
   const audioContext = new AudioContextClass();
-  const arrayBuffer = await song.blob.arrayBuffer();
+  const arrayBuffer = song.blob
+    ? await song.blob.arrayBuffer()
+    : await fetch(song.audioUrl, { mode: "cors" }).then((response) => {
+        if (!response.ok) throw new Error("Could not fetch online audio for analysis.");
+        return response.arrayBuffer();
+      });
   const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
   const channel = audioBuffer.getChannelData(0);
   const duration = audioBuffer.duration;
@@ -661,7 +786,7 @@ async function analyzeSongHook(song) {
 }
 
 async function smartAnalyzeCurrentSong() {
-  const song = state.songs.find((item) => item.id === state.currentSongId);
+  const song = findSong(state.currentSongId);
   if (!song) {
     window.alert("Play a song first, then press Smart Hook.");
     return;
@@ -673,7 +798,7 @@ async function smartAnalyzeCurrentSong() {
     const hook = await analyzeSongHook(song);
     song.autoHookStart = hook.start;
     song.autoHookLength = hook.length;
-    await putItem(SONG_STORE, song);
+    if (state.songs.some((item) => item.id === song.id)) await putItem(SONG_STORE, song);
     window.alert(`Smart hook saved at ${formatTime(hook.start)} for ${hook.length} seconds.`);
     await hydrate();
   } catch (error) {
@@ -686,16 +811,16 @@ async function smartAnalyzeCurrentSong() {
 }
 
 async function saveCurrentHookSettings() {
-  const song = state.songs.find((item) => item.id === state.currentSongId);
+  const song = findSong(state.currentSongId);
   if (!song) return;
   song.hookStart = Math.max(0, Number(els.hookStartInput.value) || 0);
   song.hookLength = Math.max(5, Number(els.hookLengthInput.value) || 60);
-  await putItem(SONG_STORE, song);
+  if (state.songs.some((item) => item.id === song.id)) await putItem(SONG_STORE, song);
   await hydrate();
 }
 
 async function markCurrentHook() {
-  const song = state.songs.find((item) => item.id === state.currentSongId);
+  const song = findSong(state.currentSongId);
   if (!song) {
     window.alert("Play a song first, then press Mark Hook when the best part starts.");
     return;
@@ -710,7 +835,7 @@ async function markCurrentHook() {
   }
   song.hookStart = Math.floor(els.audio.currentTime || 0);
   song.hookLength = Math.floor(hookLength);
-  await putItem(SONG_STORE, song);
+  if (state.songs.some((item) => item.id === song.id)) await putItem(SONG_STORE, song);
   await hydrate();
 }
 
@@ -724,7 +849,7 @@ async function playRelative(offset) {
   if (offset > 0 && state.queue.length) {
     const nextId = state.queue.shift();
     saveJson(QUEUE_KEY, state.queue);
-    await playSong(nextId, state.songs);
+    await playSong(nextId, allKnownSongs());
     return;
   }
 
@@ -733,7 +858,7 @@ async function playRelative(offset) {
   if (state.shuffle && offset > 0) {
     queue = queue.filter((id) => id !== state.currentSongId);
     const randomId = queue[Math.floor(Math.random() * queue.length)] || state.currentSongId;
-    await playSong(randomId, queue.map((id) => state.songs.find((song) => song.id === id)).filter(Boolean));
+    await playSong(randomId, queue.map((id) => findSong(id)).filter(Boolean));
     return;
   }
 
@@ -745,7 +870,7 @@ async function playRelative(offset) {
   }
   if (nextIndex < 0) nextIndex = queue.length - 1;
   const nextId = queue[nextIndex];
-  if (nextId) await playSong(nextId, queue.map((id) => state.songs.find((song) => song.id === id)).filter(Boolean));
+  if (nextId) await playSong(nextId, queue.map((id) => findSong(id)).filter(Boolean));
 }
 
 async function toggleLike(songId) {
@@ -811,7 +936,7 @@ async function exportBackup() {
   const songs = await Promise.all(
     state.songs.map(async (song) => ({
       ...song,
-      blobDataUrl: await blobToDataUrl(song.blob),
+      blobDataUrl: song.blob ? await blobToDataUrl(song.blob) : "",
       blob: undefined,
     }))
   );
@@ -842,7 +967,7 @@ async function importBackup(file) {
   }
   for (const importedSong of backup.songs) {
     const { blobDataUrl, ...song } = importedSong;
-    song.blob = dataUrlToBlob(blobDataUrl);
+    if (blobDataUrl) song.blob = dataUrlToBlob(blobDataUrl);
     await putItem(SONG_STORE, song);
   }
   for (const playlist of backup.playlists) await putItem(PLAYLIST_STORE, playlist);
@@ -871,6 +996,17 @@ function attachEvents() {
   els.filterSelect.addEventListener("change", (event) => {
     state.filter = event.target.value;
     render();
+  });
+
+  els.discoverForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    searchJamendo(els.discoverSearchInput.value.trim());
+  });
+  document.querySelectorAll("[data-discover-tag]").forEach((button) => {
+    button.addEventListener("click", () => {
+      els.discoverSearchInput.value = button.dataset.discoverTag;
+      searchJamendo(button.dataset.discoverTag);
+    });
   });
 
   ["dragenter", "dragover"].forEach((eventName) => {
@@ -955,7 +1091,7 @@ function attachEvents() {
   });
   els.hookModeToggle.addEventListener("change", () => {
     state.hookMode = els.hookModeToggle.checked;
-    const song = state.songs.find((item) => item.id === state.currentSongId);
+    const song = findSong(state.currentSongId);
     const hookStart = hookStartFor(song);
     if (state.hookMode && song && hookStart !== null && els.audio.duration) {
       els.audio.currentTime = Math.min(hookStart, Math.max(0, els.audio.duration - 1));
@@ -969,6 +1105,13 @@ function attachEvents() {
     state.settings.theme = els.themeSelect.value;
     saveJson(SETTINGS_KEY, state.settings);
     applyTheme();
+  });
+  els.saveApiSettingsButton.addEventListener("click", () => {
+    state.settings.jamendoClientId = els.jamendoClientIdInput.value.trim();
+    saveJson(SETTINGS_KEY, state.settings);
+    els.discoverStatus.textContent = state.settings.jamendoClientId
+      ? "Jamendo API settings saved. You can search Discover now."
+      : "Jamendo client ID cleared. Local uploads still work.";
   });
   els.exportBackupButton.addEventListener("click", exportBackup);
   els.importBackupInput.addEventListener("change", (event) => importBackup(event.target.files[0]));
@@ -992,7 +1135,7 @@ function attachEvents() {
     els.currentTime.textContent = formatTime(els.audio.currentTime);
     els.durationTime.textContent = formatTime(els.audio.duration);
 
-    const song = state.songs.find((item) => item.id === state.currentSongId);
+    const song = findSong(state.currentSongId);
     if (!state.hookMode || !song) return;
     const hookStart = hookStartFor(song) ?? state.fallbackStartedAt;
     const hookLength = hookLengthFor(song) ?? 60;
