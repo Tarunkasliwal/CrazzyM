@@ -85,6 +85,7 @@ const els = {
   hookModeToggle: document.getElementById("hookModeToggle"),
   hookStartInput: document.getElementById("hookStartInput"),
   hookLengthInput: document.getElementById("hookLengthInput"),
+  smartAnalyzeButton: document.getElementById("smartAnalyzeButton"),
   markHookButton: document.getElementById("markHookButton"),
   saveHookButton: document.getElementById("saveHookButton"),
   progressRange: document.getElementById("progressRange"),
@@ -187,6 +188,10 @@ function formatBytes(bytes) {
     unit += 1;
   }
   return `${value.toFixed(unit ? 1 : 0)} ${units[unit]}`;
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function getDisplayTitle(file) {
@@ -424,8 +429,8 @@ function renderNowPlaying() {
   setIcon(els.playButton, els.audio.paused ? "icon-play" : "icon-pause");
   els.playButton.setAttribute("title", els.audio.paused ? "Play" : "Pause");
   els.playButton.setAttribute("aria-label", els.audio.paused ? "Play" : "Pause");
-  els.hookStartInput.value = song?.hookStart ?? 0;
-  els.hookLengthInput.value = song?.hookLength ?? 60;
+  els.hookStartInput.value = hookStartFor(song) ?? 0;
+  els.hookLengthInput.value = hookLengthFor(song) ?? 60;
   els.coverArt.setAttribute("style", coverStyleFor(song));
   els.shuffleButton.classList.toggle("active", state.shuffle);
   els.shuffleButton.setAttribute("title", state.shuffle ? "Shuffle on" : "Shuffle off");
@@ -543,8 +548,9 @@ async function playSong(songId, queue = state.songs) {
   els.audio.addEventListener(
     "loadedmetadata",
     () => {
-      if (state.hookMode && hasSavedHook(song)) {
-        const start = Math.min(song.hookStart, Math.max(0, els.audio.duration - 1));
+      const hookStart = hookStartFor(song);
+      if (state.hookMode && hookStart !== null) {
+        const start = Math.min(hookStart, Math.max(0, els.audio.duration - 1));
         els.audio.currentTime = start;
         state.fallbackStartedAt = start;
       } else {
@@ -564,6 +570,119 @@ function addRecent(songId) {
 
 function hasSavedHook(song) {
   return Number.isFinite(song?.hookStart) && Number.isFinite(song?.hookLength) && song.hookLength > 0;
+}
+
+function hasSmartHook(song) {
+  return Number.isFinite(song?.autoHookStart) && Number.isFinite(song?.autoHookLength) && song.autoHookLength > 0;
+}
+
+function hookStartFor(song) {
+  if (hasSavedHook(song)) return song.hookStart;
+  if (hasSmartHook(song)) return song.autoHookStart;
+  return null;
+}
+
+function hookLengthFor(song) {
+  if (hasSavedHook(song)) return song.hookLength;
+  if (hasSmartHook(song)) return song.autoHookLength;
+  return null;
+}
+
+async function analyzeSongHook(song) {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) throw new Error("This browser does not support audio analysis.");
+
+  const audioContext = new AudioContextClass();
+  const arrayBuffer = await song.blob.arrayBuffer();
+  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+  const channel = audioBuffer.getChannelData(0);
+  const duration = audioBuffer.duration;
+  const sampleRate = audioBuffer.sampleRate;
+  const targetLength = clamp(duration * 0.22, 24, 42);
+
+  if (duration <= 65) {
+    await audioContext.close();
+    return { start: 0, length: Math.max(15, Math.floor(Math.min(60, duration))) };
+  }
+
+  const chunkSeconds = 4;
+  const chunkSamples = Math.floor(sampleRate * chunkSeconds);
+  const chunks = [];
+
+  for (let start = 0; start < channel.length; start += chunkSamples) {
+    const end = Math.min(start + chunkSamples, channel.length);
+    let sum = 0;
+    let zeroCrossings = 0;
+    let previous = channel[start] || 0;
+
+    for (let index = start; index < end; index += 1) {
+      const value = channel[index];
+      sum += value * value;
+      if ((previous < 0 && value >= 0) || (previous >= 0 && value < 0)) zeroCrossings += 1;
+      previous = value;
+    }
+
+    const samples = Math.max(1, end - start);
+    chunks.push({
+      time: start / sampleRate,
+      rms: Math.sqrt(sum / samples),
+      brightness: zeroCrossings / samples,
+    });
+  }
+
+  const minStart = Math.min(35, duration * 0.18);
+  const maxStart = Math.max(minStart, duration - targetLength - 12);
+  const windowChunks = Math.max(1, Math.ceil(targetLength / chunkSeconds));
+  let bestStart = minStart;
+  let bestScore = -Infinity;
+
+  for (let index = 0; index <= chunks.length - windowChunks; index += 1) {
+    const startTime = chunks[index].time;
+    if (startTime < minStart || startTime > maxStart) continue;
+
+    const window = chunks.slice(index, index + windowChunks);
+    const energy = window.reduce((total, chunk) => total + chunk.rms, 0) / window.length;
+    const brightness = window.reduce((total, chunk) => total + chunk.brightness, 0) / window.length;
+    const stabilityPenalty = window.reduce((total, chunk) => total + Math.abs(chunk.rms - energy), 0) / window.length;
+    const latePenalty = startTime / duration > 0.78 ? 0.08 : 0;
+    const score = energy * 0.82 + brightness * 24 - stabilityPenalty * 0.35 - latePenalty;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestStart = startTime;
+    }
+  }
+
+  await audioContext.close();
+  return {
+    start: Math.floor(bestStart),
+    length: Math.floor(Math.min(targetLength, duration - bestStart - 2)),
+  };
+}
+
+async function smartAnalyzeCurrentSong() {
+  const song = state.songs.find((item) => item.id === state.currentSongId);
+  if (!song) {
+    window.alert("Play a song first, then press Smart Hook.");
+    return;
+  }
+
+  els.smartAnalyzeButton.disabled = true;
+  els.smartAnalyzeButton.textContent = "Analyzing";
+  try {
+    const hook = await analyzeSongHook(song);
+    song.autoHookStart = hook.start;
+    song.autoHookLength = hook.length;
+    await putItem(SONG_STORE, song);
+    window.alert(`Smart hook saved at ${formatTime(hook.start)} for ${hook.length} seconds.`);
+    await hydrate();
+  } catch (error) {
+    console.error(error);
+    window.alert("Could not analyze this song in the browser.");
+  } finally {
+    els.smartAnalyzeButton.disabled = false;
+    els.smartAnalyzeButton.textContent = "Smart Hook";
+  }
 }
 
 async function saveCurrentHookSettings() {
@@ -837,10 +956,12 @@ function attachEvents() {
   els.hookModeToggle.addEventListener("change", () => {
     state.hookMode = els.hookModeToggle.checked;
     const song = state.songs.find((item) => item.id === state.currentSongId);
-    if (state.hookMode && song && hasSavedHook(song) && els.audio.duration) {
-      els.audio.currentTime = Math.min(song.hookStart, Math.max(0, els.audio.duration - 1));
+    const hookStart = hookStartFor(song);
+    if (state.hookMode && song && hookStart !== null && els.audio.duration) {
+      els.audio.currentTime = Math.min(hookStart, Math.max(0, els.audio.duration - 1));
     }
   });
+  els.smartAnalyzeButton.addEventListener("click", smartAnalyzeCurrentSong);
   els.markHookButton.addEventListener("click", markCurrentHook);
   els.saveHookButton.addEventListener("click", saveCurrentHookSettings);
   els.sleepTimerSelect.addEventListener("change", () => setSleepTimer(Number(els.sleepTimerSelect.value)));
@@ -873,8 +994,8 @@ function attachEvents() {
 
     const song = state.songs.find((item) => item.id === state.currentSongId);
     if (!state.hookMode || !song) return;
-    const hookStart = hasSavedHook(song) ? song.hookStart : state.fallbackStartedAt;
-    const hookLength = hasSavedHook(song) ? song.hookLength : 60;
+    const hookStart = hookStartFor(song) ?? state.fallbackStartedAt;
+    const hookLength = hookLengthFor(song) ?? 60;
     if (els.audio.currentTime >= hookStart + hookLength) playRelative(1);
   });
   els.progressRange.addEventListener("input", () => {

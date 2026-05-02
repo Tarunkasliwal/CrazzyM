@@ -837,6 +837,8 @@ body[data-theme="clean"] .sidebar {
   gap: 8px;
   color: var(--muted);
   font-size: 0.8rem;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .hook-controls label {
@@ -855,6 +857,12 @@ body[data-theme="clean"] .sidebar {
 .hook-toggle {
   color: var(--text);
   font-weight: 800;
+}
+
+.hook-hint {
+  flex-basis: 100%;
+  color: var(--muted);
+  text-align: center;
 }
 
 .control-buttons {
