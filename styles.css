@@ -39,7 +39,8 @@ body {
     linear-gradient(135deg, #0d1117 0%, #111827 48%, #17131f 100%);
   color: var(--text);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  padding-bottom: 132px;
+  padding-bottom: calc(132px + env(safe-area-inset-bottom));
+  -webkit-text-size-adjust: 100%;
 }
 
 body[data-theme="neon"] {
@@ -102,6 +103,7 @@ select {
 
 button {
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .app-shell {
@@ -741,6 +743,17 @@ select {
   margin-top: 18px;
 }
 
+.mobile-upload-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.mobile-upload-actions button {
+  min-height: 46px;
+}
+
 .cover-upload,
 .import-button {
   display: inline-grid;
@@ -819,7 +832,7 @@ select {
   justify-content: space-between;
   gap: 18px;
   min-height: 132px;
-  padding: 16px 24px;
+  padding: 16px 24px calc(16px + env(safe-area-inset-bottom));
   background: rgba(11, 15, 22, 0.9);
   border-top: 1px solid var(--line);
   backdrop-filter: blur(22px);
@@ -942,7 +955,7 @@ input[type="range"] {
 
 @media (max-width: 940px) {
   body {
-    padding-bottom: 260px;
+    padding-bottom: calc(286px + env(safe-area-inset-bottom));
   }
 
   .app-shell {
@@ -958,7 +971,18 @@ input[type="range"] {
   }
 
   .nav-tabs {
-    grid-template-columns: repeat(4, 1fr);
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nav-tab {
+    flex: 0 0 auto;
+    min-width: 128px;
+    justify-content: center;
+    scroll-snap-align: start;
   }
 
   .topbar,
@@ -1009,7 +1033,7 @@ input[type="range"] {
   }
 
   .player-bar {
-    min-height: 260px;
+    min-height: 286px;
   }
 
   .now-playing,
@@ -1041,11 +1065,35 @@ input[type="range"] {
 
   .nav-tab {
     justify-content: center;
-    padding: 10px;
+    padding: 11px 14px;
   }
 
-  .nav-tab span {
-    display: none;
+  .nav-tab svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .topbar h1 {
+    font-size: 2.15rem;
+  }
+
+  .hook-controls label:not(.hook-toggle) {
+    flex: 1 1 90px;
+  }
+
+  .hook-controls input[type="number"] {
+    width: 100%;
+  }
+
+  .mobile-upload-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .primary-action,
+  .secondary-action,
+  .danger-action {
+    width: 100%;
   }
 
   .hero-copy {

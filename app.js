@@ -5,6 +5,8 @@ const PLAYLIST_STORE = "playlists";
 const SETTINGS_KEY = "pulsestream-settings";
 const RECENT_KEY = "pulsestream-recent";
 const QUEUE_KEY = "pulsestream-queue";
+const DEFAULT_MUSIC_KEY = "pulsestream-default-music-loaded";
+const DEFAULT_MUSIC_MANIFEST = "default-music/manifest.json";
 
 const state = {
   songs: [],
@@ -41,6 +43,8 @@ const els = {
   manualAlbum: document.getElementById("manualAlbum"),
   manualMood: document.getElementById("manualMood"),
   manualCover: document.getElementById("manualCover"),
+  browseFilesButton: document.getElementById("browseFilesButton"),
+  loadDefaultMusicButton: document.getElementById("loadDefaultMusicButton"),
   navTabs: document.querySelectorAll(".nav-tab"),
   views: {
     library: document.getElementById("libraryView"),
@@ -516,7 +520,11 @@ async function deleteSong(songId) {
 }
 
 async function addFiles(files) {
-  const audioFiles = [...files].filter((file) => file.type.startsWith("audio/"));
+  const audioExtensions = [".mp3", ".m4a", ".aac", ".wav", ".ogg", ".flac"];
+  const audioFiles = [...files].filter((file) => {
+    const name = file.name.toLowerCase();
+    return file.type.startsWith("audio/") || audioExtensions.some((extension) => name.endsWith(extension));
+  });
   if (!audioFiles.length) {
     els.uploadStatus.textContent = "No audio files were selected.";
     return;
@@ -566,6 +574,57 @@ async function addFiles(files) {
   els.manualCover.value = "";
   await hydrate();
   setView("library");
+}
+
+async function loadDefaultMusic(force = false) {
+  if (!force && localStorage.getItem(DEFAULT_MUSIC_KEY) === "true") return;
+
+  try {
+    const response = await fetch(DEFAULT_MUSIC_MANIFEST);
+    if (!response.ok) throw new Error("Default music manifest was not found.");
+    const tracks = await response.json();
+    let added = 0;
+
+    for (const [index, track] of tracks.entries()) {
+      const exists = state.songs.some((song) => song.source === "default" && song.fileName === track.file);
+      if (exists) continue;
+
+      const audioResponse = await fetch(`default-music/${track.file}`);
+      if (!audioResponse.ok) continue;
+      const blob = await audioResponse.blob();
+      const duration = track.duration || (await getAudioDuration(blob));
+
+      await putItem(SONG_STORE, {
+        id: crypto.randomUUID(),
+        source: "default",
+        title: track.title,
+        artist: track.artist || "PulseStream",
+        album: track.album || "Default Music",
+        mood: track.mood || "",
+        fileName: track.file,
+        fileType: blob.type || "audio/wav",
+        size: blob.size,
+        duration,
+        createdAt: Date.now() + index,
+        liked: false,
+        playCount: 0,
+        hookStart: null,
+        hookLength: null,
+        autoHookStart: 5,
+        autoHookLength: Math.min(30, Math.max(12, Math.floor(duration - 2))),
+        cover: "",
+        blob,
+      });
+      added += 1;
+    }
+
+    localStorage.setItem(DEFAULT_MUSIC_KEY, "true");
+    if (force) els.uploadStatus.textContent = added ? `Loaded ${added} default tracks.` : "Default tracks are already loaded.";
+    await hydrate();
+  } catch (error) {
+    console.error(error);
+    if (force) els.uploadStatus.textContent = "Could not load default music.";
+  }
 }
 
 function mapJamendoTrack(track) {
@@ -984,6 +1043,8 @@ function attachEvents() {
   });
 
   els.heroUploadButton.addEventListener("click", () => setView("upload"));
+  els.browseFilesButton.addEventListener("click", () => els.fileInput.click());
+  els.loadDefaultMusicButton.addEventListener("click", () => loadDefaultMusic(true));
   els.fileInput.addEventListener("change", (event) => addFiles(event.target.files));
   els.searchInput.addEventListener("input", (event) => {
     state.search = event.target.value;
@@ -1155,6 +1216,7 @@ async function init() {
   els.audio.volume = Number(els.volumeRange.value);
   attachEvents();
   await hydrate();
+  await loadDefaultMusic(false);
 }
 
 init().catch((error) => {

@@ -1,0 +1,26 @@
+[
+  {
+    "file": "neon-pulse.wav",
+    "title": "Neon Pulse",
+    "artist": "PulseStream",
+    "album": "Default Music",
+    "mood": "focus",
+    "duration": 18
+  },
+  {
+    "file": "sunset-drive.wav",
+    "title": "Sunset Drive",
+    "artist": "PulseStream",
+    "album": "Default Music",
+    "mood": "chill",
+    "duration": 18
+  },
+  {
+    "file": "morning-spark.wav",
+    "title": "Morning Spark",
+    "artist": "PulseStream",
+    "album": "Default Music",
+    "mood": "party",
+    "duration": 18
+  }
+]

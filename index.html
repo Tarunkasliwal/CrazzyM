@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>PulseStream Music</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -222,11 +222,15 @@
             </div>
           </div>
           <label class="drop-zone" id="dropZone">
-            <input id="fileInput" type="file" accept="audio/*" multiple />
+            <input id="fileInput" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.flac" multiple />
             <span aria-hidden="true"><svg><use href="#icon-plus"></use></svg></span>
             <strong>Drop audio files here or click to browse</strong>
-            <small>Your songs are stored in this browser using IndexedDB.</small>
+            <small>On iPhone, use Browse Files and choose songs from Files or iCloud Drive.</small>
           </label>
+          <div class="mobile-upload-actions">
+            <button class="primary-action" type="button" id="browseFilesButton">Browse Files</button>
+            <button class="secondary-action" type="button" id="loadDefaultMusicButton">Load Default Music</button>
+          </div>
           <div class="upload-grid">
             <label>Song title<input id="manualTitle" type="text" placeholder="Use file name automatically" /></label>
             <label>Artist<input id="manualArtist" type="text" placeholder="Unknown artist" /></label>
