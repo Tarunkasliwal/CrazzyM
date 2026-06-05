@@ -23,6 +23,16 @@
       <symbol id="icon-music" viewBox="0 0 24 24"><path d="M10 4v11.5A3.5 3.5 0 1 1 8 12.3V6l10-2v9.5a3.5 3.5 0 1 1-2-3.2V6.4L10 7.6V4z" /></symbol>
       <symbol id="icon-search" viewBox="0 0 24 24"><path d="M10 4a6 6 0 1 1-3.7 10.7l-3 3-1.4-1.4 3-3A6 6 0 0 1 10 4zm0 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" /></symbol>
     </svg>
+    <header class="mobile-header" aria-label="Mobile app header">
+      <div>
+        <strong>PulseStream</strong>
+        <small>Smart music player</small>
+      </div>
+      <button class="mobile-upload-shortcut" type="button" data-view-jump="upload">
+        <svg aria-hidden="true"><use href="#icon-plus"></use></svg>
+        Add
+      </button>
+    </header>
     <div class="app-shell">
       <aside class="sidebar" aria-label="Music navigation">
         <div class="brand">
@@ -336,6 +346,29 @@
         </label>
       </div>
     </footer>
+
+    <nav class="mobile-tabbar" aria-label="Mobile navigation">
+      <button class="mobile-tab active" type="button" data-mobile-view="library">
+        <svg aria-hidden="true"><use href="#icon-music"></use></svg>
+        <span>Library</span>
+      </button>
+      <button class="mobile-tab" type="button" data-mobile-view="discover">
+        <svg aria-hidden="true"><use href="#icon-search"></use></svg>
+        <span>Discover</span>
+      </button>
+      <button class="mobile-tab" type="button" data-mobile-view="playlists">
+        <svg aria-hidden="true"><use href="#icon-heart"></use></svg>
+        <span>Lists</span>
+      </button>
+      <button class="mobile-tab" type="button" data-mobile-view="upload">
+        <svg aria-hidden="true"><use href="#icon-plus"></use></svg>
+        <span>Upload</span>
+      </button>
+      <button class="mobile-tab" type="button" data-mobile-view="settings">
+        <svg aria-hidden="true"><use href="#icon-edit"></use></svg>
+        <span>More</span>
+      </button>
+    </nav>
 
     <audio id="audioPlayer"></audio>
     <template id="trackTemplate">

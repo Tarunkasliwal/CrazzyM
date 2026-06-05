@@ -46,6 +46,7 @@ const els = {
   browseFilesButton: document.getElementById("browseFilesButton"),
   loadDefaultMusicButton: document.getElementById("loadDefaultMusicButton"),
   navTabs: document.querySelectorAll(".nav-tab"),
+  mobileTabs: document.querySelectorAll(".mobile-tab"),
   views: {
     library: document.getElementById("libraryView"),
     liked: document.getElementById("likedView"),
@@ -182,7 +183,9 @@ async function hydrate() {
 
 function setView(viewName) {
   els.navTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.view === viewName));
+  els.mobileTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.mobileView === viewName));
   Object.entries(els.views).forEach(([key, view]) => view.classList.toggle("active", key === viewName));
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function formatTime(seconds) {
@@ -577,35 +580,22 @@ async function addFiles(files) {
 }
 
 async function loadDefaultMusic(force = false) {
+  if (!force && localStorage.getItem(DEFAULT_MUSIC_KEY) === "true") return;
+
   try {
     const response = await fetch(DEFAULT_MUSIC_MANIFEST);
     if (!response.ok) throw new Error("Default music manifest was not found.");
     const tracks = await response.json();
-    const loadedDefaults = state.songs.filter((song) => song.source === "default");
-    const hasAllDefaults = tracks.every((track) =>
-      loadedDefaults.some((song) => song.fileName === track.file && song.audioUrl)
-    );
-
-    if (!force && localStorage.getItem(DEFAULT_MUSIC_KEY) === "true" && hasAllDefaults) return;
-
     let added = 0;
-    let repaired = 0;
 
     for (const [index, track] of tracks.entries()) {
-      const audioUrl = `default-music/${track.file}`;
-      const existing = state.songs.find((song) => song.source === "default" && song.fileName === track.file);
+      const exists = state.songs.some((song) => song.source === "default" && song.fileName === track.file);
+      if (exists) continue;
 
-      if (existing) {
-        existing.audioUrl = audioUrl;
-        existing.fileType = existing.fileType || "audio/wav";
-        existing.duration = existing.duration || track.duration || 0;
-        delete existing.blob;
-        await putItem(SONG_STORE, existing);
-        repaired += 1;
-        continue;
-      }
-
-      const duration = track.duration || 0;
+      const audioResponse = await fetch(`default-music/${track.file}`);
+      if (!audioResponse.ok) continue;
+      const blob = await audioResponse.blob();
+      const duration = track.duration || (await getAudioDuration(blob));
 
       await putItem(SONG_STORE, {
         id: crypto.randomUUID(),
@@ -615,8 +605,8 @@ async function loadDefaultMusic(force = false) {
         album: track.album || "Default Music",
         mood: track.mood || "",
         fileName: track.file,
-        fileType: "audio/wav",
-        size: 0,
+        fileType: blob.type || "audio/wav",
+        size: blob.size,
         duration,
         createdAt: Date.now() + index,
         liked: false,
@@ -626,18 +616,13 @@ async function loadDefaultMusic(force = false) {
         autoHookStart: 5,
         autoHookLength: Math.min(30, Math.max(12, Math.floor(duration - 2))),
         cover: "",
-        audioUrl,
+        blob,
       });
       added += 1;
     }
 
     localStorage.setItem(DEFAULT_MUSIC_KEY, "true");
-    if (force) {
-      els.uploadStatus.textContent =
-        added || repaired
-          ? `Default music ready: ${added} added, ${repaired} repaired.`
-          : "Default tracks are already loaded.";
-    }
+    if (force) els.uploadStatus.textContent = added ? `Loaded ${added} default tracks.` : "Default tracks are already loaded.";
     await hydrate();
   } catch (error) {
     console.error(error);
@@ -1056,6 +1041,7 @@ async function importBackup(file) {
 
 function attachEvents() {
   els.navTabs.forEach((tab) => tab.addEventListener("click", () => setView(tab.dataset.view)));
+  els.mobileTabs.forEach((tab) => tab.addEventListener("click", () => setView(tab.dataset.mobileView)));
   document.querySelectorAll("[data-view-jump]").forEach((button) => {
     button.addEventListener("click", () => setView(button.dataset.viewJump));
   });
@@ -1234,7 +1220,6 @@ async function init() {
   els.audio.volume = Number(els.volumeRange.value);
   attachEvents();
   await hydrate();
-  await loadDefaultMusic(false);
 }
 
 init().catch((error) => {
