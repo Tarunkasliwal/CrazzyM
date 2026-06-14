@@ -2,8 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PulseStream Music</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>CrazzyM Music</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -22,13 +22,17 @@
       <symbol id="icon-down" viewBox="0 0 24 24"><path d="M12 19l-7-8h5V5h4v6h5z" /></symbol>
       <symbol id="icon-music" viewBox="0 0 24 24"><path d="M10 4v11.5A3.5 3.5 0 1 1 8 12.3V6l10-2v9.5a3.5 3.5 0 1 1-2-3.2V6.4L10 7.6V4z" /></symbol>
       <symbol id="icon-search" viewBox="0 0 24 24"><path d="M10 4a6 6 0 1 1-3.7 10.7l-3 3-1.4-1.4 3-3A6 6 0 0 1 10 4zm0 2a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" /></symbol>
+      <symbol id="icon-settings" viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.92c.04-.34.07-.69.07-1.08s-.03-.73-.07-1.08l2.32-1.8c.21-.16.27-.45.13-.68l-2.2-3.8c-.13-.23-.42-.32-.65-.23l-2.73 1.1c-.57-.44-1.18-.8-1.85-1.07L14 2.42A.5.5 0 0 0 13.5 2h-3a.5.5 0 0 0-.5.42L9.72 5.14C9.05 5.41 8.44 5.77 7.87 6.21L5.14 5.11c-.23-.09-.52 0-.65.23l-2.2 3.8c-.14.23-.08.52.13.68L4.74 11.5c-.04.34-.07.7-.07 1.08s.03.73.07 1.08L2.42 15.5c-.21.16-.27.45-.13.68l2.2 3.8c.13.23.42.3.65.23l2.73-1.1c.57.44 1.18.8 1.85 1.07L10 21.58c.08.23.29.42.5.42h3c.21 0 .42-.19.5-.42l.45-2.72c.67-.27 1.28-.63 1.85-1.07l2.73 1.1c.23.09.52 0 .65-.23l2.2-3.8c.14-.23.08-.52-.13-.68l-2.32-1.82z"/></symbol>
+      <symbol id="icon-queue" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h12v2H3v-2zm16 0l-1.4 1.4L19 18.8l3.6-3.6L21.2 14 19 16.2 17.8 15l-1.4 1.4L19 19l4-4-1.4-1.4-2.6 2.6z"/></symbol>
+      <symbol id="icon-volume" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></symbol>
     </svg>
+
     <div class="app-shell">
       <aside class="sidebar" aria-label="Music navigation">
         <div class="brand">
           <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
           <div>
-            <strong>PulseStream</strong>
+            <strong>CrazzyM</strong>
             <small>Local music studio</small>
           </div>
         </div>
@@ -39,9 +43,9 @@
           <button class="nav-tab" type="button" data-view="recent"><svg><use href="#icon-repeat"></use></svg>Recent</button>
           <button class="nav-tab" type="button" data-view="discover"><svg><use href="#icon-search"></use></svg>Discover</button>
           <button class="nav-tab" type="button" data-view="playlists"><svg><use href="#icon-music"></use></svg>Playlists</button>
-          <button class="nav-tab" type="button" data-view="queue"><svg><use href="#icon-plus"></use></svg>Queue</button>
+          <button class="nav-tab" type="button" data-view="queue"><svg><use href="#icon-queue"></use></svg>Queue</button>
           <button class="nav-tab" type="button" data-view="upload"><svg><use href="#icon-up"></use></svg>Upload</button>
-          <button class="nav-tab" type="button" data-view="settings"><svg><use href="#icon-edit"></use></svg>Settings</button>
+          <button class="nav-tab" type="button" data-view="settings"><svg><use href="#icon-settings"></use></svg>Settings</button>
         </nav>
 
         <section class="mini-panel">
@@ -55,10 +59,26 @@
       </aside>
 
       <main class="main-content">
+        <!-- Mobile-only top bar -->
+        <div class="mobile-topbar">
+          <div class="mobile-brand">
+            <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+            <strong>CrazzyM</strong>
+          </div>
+          <div class="mobile-topbar-actions">
+            <label class="icon-button mobile-search-toggle" aria-label="Search">
+              <svg><use href="#icon-search"></use></svg>
+            </label>
+            <button class="icon-button" id="mobileSettingsBtn" type="button" aria-label="Settings">
+              <svg><use href="#icon-settings"></use></svg>
+            </button>
+          </div>
+        </div>
+
         <header class="topbar">
-          <div>
+          <div class="topbar-headline">
             <p class="eyebrow">Your sound, your files</p>
-            <h1>Music that lives in your browser.</h1>
+            <h1>Music that lives<br>in your browser.</h1>
           </div>
           <label class="search-box">
             <svg aria-hidden="true"><use href="#icon-search"></use></svg>
@@ -103,6 +123,7 @@
           </div>
           <div class="track-list" id="trackList"></div>
           <div class="empty-state" id="libraryEmpty">
+            <div class="empty-icon"><svg><use href="#icon-music"></use></svg></div>
             <strong>No tracks yet</strong>
             <p>Upload MP3, WAV, OGG, M4A, or other audio files to start your library.</p>
             <button class="secondary-action" type="button" data-view-jump="upload">Upload songs</button>
@@ -119,6 +140,7 @@
           </div>
           <div class="track-list" id="likedList"></div>
           <div class="empty-state" id="likedEmpty">
+            <div class="empty-icon"><svg><use href="#icon-heart"></use></svg></div>
             <strong>No liked songs yet</strong>
             <p>Use the Like button on any track to collect favorites here.</p>
           </div>
@@ -134,6 +156,7 @@
           </div>
           <div class="track-list" id="recentList"></div>
           <div class="empty-state" id="recentEmpty">
+            <div class="empty-icon"><svg><use href="#icon-repeat"></use></svg></div>
             <strong>No listening history</strong>
             <p>Played songs will appear here automatically.</p>
           </div>
@@ -151,14 +174,17 @@
             </form>
           </div>
           <div class="discover-actions">
-            <button class="secondary-action compact" type="button" data-discover-tag="chill">Chill</button>
-            <button class="secondary-action compact" type="button" data-discover-tag="focus">Focus</button>
-            <button class="secondary-action compact" type="button" data-discover-tag="electronic">Electronic</button>
-            <button class="secondary-action compact" type="button" data-discover-tag="rock">Rock</button>
+            <button class="mood-chip" type="button" data-discover-tag="chill">Chill</button>
+            <button class="mood-chip" type="button" data-discover-tag="focus">Focus</button>
+            <button class="mood-chip" type="button" data-discover-tag="electronic">Electronic</button>
+            <button class="mood-chip" type="button" data-discover-tag="rock">Rock</button>
+            <button class="mood-chip" type="button" data-discover-tag="jazz">Jazz</button>
+            <button class="mood-chip" type="button" data-discover-tag="ambient">Ambient</button>
           </div>
           <p class="upload-note" id="discoverStatus">Add a Jamendo client ID in Settings, then search free tracks.</p>
           <div class="track-list" id="discoverList"></div>
           <div class="empty-state" id="discoverEmpty">
+            <div class="empty-icon"><svg><use href="#icon-search"></use></svg></div>
             <strong>No online tracks loaded</strong>
             <p>Search Jamendo to play free music without local uploads.</p>
           </div>
@@ -194,6 +220,7 @@
             <div class="track-list" id="playlistTracks"></div>
           </div>
           <div class="empty-state" id="playlistEmpty">
+            <div class="empty-icon"><svg><use href="#icon-music"></use></svg></div>
             <strong>No playlists yet</strong>
             <p>Create a playlist, then add songs from your library.</p>
           </div>
@@ -209,6 +236,7 @@
           </div>
           <div class="track-list" id="queueList"></div>
           <div class="empty-state" id="queueEmpty">
+            <div class="empty-icon"><svg><use href="#icon-queue"></use></svg></div>
             <strong>Your queue is empty</strong>
             <p>Use Play Next on tracks to build a queue.</p>
           </div>
@@ -285,10 +313,12 @@
       </main>
     </div>
 
+    <!-- Mini player bar -->
     <footer class="player-bar" aria-label="Audio player">
-      <div class="now-playing">
+      <div class="mini-progress-line" id="miniProgressLine"></div>
+      <div class="now-playing" id="nowPlayingArea">
         <div class="cover-art" id="coverArt" aria-hidden="true"><span></span></div>
-        <div>
+        <div class="now-playing-text">
           <strong id="nowTitle">Nothing playing</strong>
           <small id="nowArtist">Add a song and press play</small>
         </div>
@@ -327,17 +357,25 @@
           </select>
         </label>
         <label class="volume-row">
-          Vol
+          <svg aria-hidden="true"><use href="#icon-volume"></use></svg>
           <input id="volumeRange" type="range" min="0" max="1" step="0.01" value="0.85" aria-label="Volume" />
         </label>
       </div>
+      <!-- Mobile expand button -->
+      <button class="fp-open-btn" id="miniExpand" type="button" aria-label="Open full player">
+        <svg><use href="#icon-up"></use></svg>
+      </button>
     </footer>
 
     <audio id="audioPlayer"></audio>
+
     <template id="trackTemplate">
       <article class="track-row">
         <button class="track-play" type="button" aria-label="Play song" title="Play"><svg><use href="#icon-play"></use></svg></button>
-        <div class="row-cover" aria-hidden="true"><span></span></div>
+        <div class="row-cover" aria-hidden="true">
+          <span></span>
+          <div class="np-bars"><span></span><span></span><span></span></div>
+        </div>
         <div class="track-meta"><strong></strong><small></small></div>
         <div class="track-album"></div>
         <div class="track-stats"></div>
@@ -350,6 +388,111 @@
         <button class="remove-button" type="button" aria-label="Remove song" title="Remove"><svg><use href="#icon-trash"></use></svg></button>
       </article>
     </template>
+
+    <!-- Full player overlay -->
+    <div class="full-player" id="fullPlayer" aria-hidden="true">
+      <div class="fp-bg" id="fpBg"></div>
+      <div class="fp-sheet">
+        <div class="fp-handle"></div>
+        <button class="fp-close" id="closeFP" type="button" aria-label="Minimize player">
+          <svg><use href="#icon-down"></use></svg>
+        </button>
+        <div class="fp-cover-wrap">
+          <div class="fp-cover" id="fpCover"></div>
+        </div>
+        <div class="fp-info">
+          <div class="fp-text">
+            <strong id="fpTitle">Nothing playing</strong>
+            <span id="fpArtist">—</span>
+          </div>
+          <button class="icon-button fp-like-btn" id="fpLike" type="button" aria-label="Like">
+            <svg><use href="#icon-heart"></use></svg>
+          </button>
+        </div>
+        <div class="fp-seek">
+          <input id="fpProgress" type="range" min="0" max="100" value="0" aria-label="Playback progress" />
+          <div class="fp-times">
+            <span id="fpCurrent">0:00</span>
+            <span id="fpDuration">0:00</span>
+          </div>
+        </div>
+        <div class="fp-controls">
+          <button class="icon-button" id="fpShuffle" type="button" aria-label="Shuffle"><svg><use href="#icon-shuffle"></use></svg></button>
+          <button class="icon-button" id="fpPrev" type="button" aria-label="Previous"><svg><use href="#icon-prev"></use></svg></button>
+          <button class="play-button fp-play" id="fpPlay" type="button" aria-label="Play"><svg><use href="#icon-play"></use></svg></button>
+          <button class="icon-button" id="fpNext" type="button" aria-label="Next"><svg><use href="#icon-next"></use></svg></button>
+          <button class="icon-button" id="fpRepeat" type="button" aria-label="Repeat"><svg><use href="#icon-repeat"></use></svg></button>
+        </div>
+        <div class="fp-volume">
+          <svg aria-hidden="true"><use href="#icon-volume"></use></svg>
+          <input id="fpVolume" type="range" min="0" max="1" step="0.01" value="0.85" aria-label="Volume" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit song modal -->
+    <div class="modal-overlay" id="editModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+      <div class="modal">
+        <h3 id="editModalTitle">Edit song</h3>
+        <div class="modal-fields">
+          <label>Title<input id="editTitle" type="text" /></label>
+          <label>Artist<input id="editArtist" type="text" /></label>
+          <label>Album<input id="editAlbum" type="text" /></label>
+          <label>Mood
+            <select id="editMood">
+              <option value="">None</option>
+              <option value="chill">Chill</option>
+              <option value="focus">Focus</option>
+              <option value="gym">Gym</option>
+              <option value="party">Party</option>
+            </select>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="secondary-action" type="button" id="editModalCancel">Cancel</button>
+          <button class="primary-action" type="button" id="editModalSave">Save changes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hook length modal -->
+    <div class="modal-overlay" id="hookModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="hookModalTitle">
+      <div class="modal">
+        <h3 id="hookModalTitle">Set hook length</h3>
+        <p class="modal-hint">How many seconds should this hook play before the next song?</p>
+        <label class="modal-single-field">
+          Seconds
+          <input id="hookLengthPrompt" type="number" min="5" value="30" />
+        </label>
+        <div class="modal-actions">
+          <button class="secondary-action" type="button" id="hookModalCancel">Cancel</button>
+          <button class="primary-action" type="button" id="hookModalConfirm">Set hook</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast notifications -->
+    <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+    <!-- Mobile bottom navigation -->
+    <nav class="bottom-nav" aria-label="App navigation">
+      <button class="bnav-item active" type="button" data-view="library">
+        <svg><use href="#icon-music"></use></svg><span>Library</span>
+      </button>
+      <button class="bnav-item" type="button" data-view="liked">
+        <svg><use href="#icon-heart"></use></svg><span>Liked</span>
+      </button>
+      <button class="bnav-item" type="button" data-view="discover">
+        <svg><use href="#icon-search"></use></svg><span>Discover</span>
+      </button>
+      <button class="bnav-item" type="button" data-view="playlists">
+        <svg><use href="#icon-music"></use></svg><span>Playlists</span>
+      </button>
+      <button class="bnav-item" type="button" data-view="queue">
+        <svg><use href="#icon-queue"></use></svg><span>Queue</span>
+      </button>
+    </nav>
+
     <script src="app.js"></script>
   </body>
 </html>

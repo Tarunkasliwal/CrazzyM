@@ -1,10 +1,10 @@
-const DB_NAME = "pulsestream-db";
+const DB_NAME = "crazzy-m-db";
 const DB_VERSION = 1;
 const SONG_STORE = "songs";
 const PLAYLIST_STORE = "playlists";
-const SETTINGS_KEY = "pulsestream-settings";
-const RECENT_KEY = "pulsestream-recent";
-const QUEUE_KEY = "pulsestream-queue";
+const SETTINGS_KEY = "crazzy-m-settings";
+const RECENT_KEY = "crazzy-m-recent";
+const QUEUE_KEY = "crazzy-m-queue";
 
 const state = {
   songs: [],
@@ -109,6 +109,35 @@ const els = {
   trackCount: document.getElementById("trackCount"),
   playlistCount: document.getElementById("playlistCount"),
   heroUploadButton: document.getElementById("heroUploadButton"),
+  // New elements
+  bnavItems: document.querySelectorAll(".bnav-item"),
+  fullPlayer: document.getElementById("fullPlayer"),
+  fpCover: document.getElementById("fpCover"),
+  fpTitle: document.getElementById("fpTitle"),
+  fpArtist: document.getElementById("fpArtist"),
+  fpPlay: document.getElementById("fpPlay"),
+  fpPrev: document.getElementById("fpPrev"),
+  fpNext: document.getElementById("fpNext"),
+  fpShuffle: document.getElementById("fpShuffle"),
+  fpRepeat: document.getElementById("fpRepeat"),
+  fpLike: document.getElementById("fpLike"),
+  fpProgress: document.getElementById("fpProgress"),
+  fpCurrent: document.getElementById("fpCurrent"),
+  fpDuration: document.getElementById("fpDuration"),
+  fpVolume: document.getElementById("fpVolume"),
+  miniProgressLine: document.getElementById("miniProgressLine"),
+  toastStack: document.getElementById("toastStack"),
+  editModal: document.getElementById("editModal"),
+  editTitle: document.getElementById("editTitle"),
+  editArtist: document.getElementById("editArtist"),
+  editAlbum: document.getElementById("editAlbum"),
+  editMood: document.getElementById("editMood"),
+  editModalCancel: document.getElementById("editModalCancel"),
+  editModalSave: document.getElementById("editModalSave"),
+  hookModal: document.getElementById("hookModal"),
+  hookLengthPrompt: document.getElementById("hookLengthPrompt"),
+  hookModalCancel: document.getElementById("hookModalCancel"),
+  hookModalConfirm: document.getElementById("hookModalConfirm"),
 };
 
 let db;
@@ -178,6 +207,7 @@ async function hydrate() {
 
 function setView(viewName) {
   els.navTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.view === viewName));
+  els.bnavItems.forEach((tab) => tab.classList.toggle("active", tab.dataset.view === viewName));
   Object.entries(els.views).forEach(([key, view]) => view.classList.toggle("active", key === viewName));
 }
 
@@ -478,6 +508,10 @@ function renderNowPlaying() {
   els.repeatButton.classList.toggle("active", state.repeat !== "off");
   els.repeatButton.setAttribute("title", state.repeat === "one" ? "Repeat one" : state.repeat === "all" ? "Repeat all" : "Repeat off");
   els.repeatButton.setAttribute("aria-label", els.repeatButton.getAttribute("title"));
+  renderFullPlayer();
+  document.querySelectorAll(".track-row.active").forEach((row) =>
+    row.classList.toggle("playing", !els.audio.paused)
+  );
 }
 
 function renderCounts() {
@@ -788,22 +822,22 @@ async function analyzeSongHook(song) {
 async function smartAnalyzeCurrentSong() {
   const song = findSong(state.currentSongId);
   if (!song) {
-    window.alert("Play a song first, then press Smart Hook.");
+    toast("Play a song first, then press Smart Hook.", "warn");
     return;
   }
 
   els.smartAnalyzeButton.disabled = true;
-  els.smartAnalyzeButton.textContent = "Analyzing";
+  els.smartAnalyzeButton.textContent = "Analyzing…";
   try {
     const hook = await analyzeSongHook(song);
     song.autoHookStart = hook.start;
     song.autoHookLength = hook.length;
     if (state.songs.some((item) => item.id === song.id)) await putItem(SONG_STORE, song);
-    window.alert(`Smart hook saved at ${formatTime(hook.start)} for ${hook.length} seconds.`);
+    toast(`Smart hook: ${formatTime(hook.start)}, ${hook.length}s`);
     await hydrate();
   } catch (error) {
     console.error(error);
-    window.alert("Could not analyze this song in the browser.");
+    toast("Could not analyze this song.", "error");
   } finally {
     els.smartAnalyzeButton.disabled = false;
     els.smartAnalyzeButton.textContent = "Smart Hook";
@@ -822,21 +856,40 @@ async function saveCurrentHookSettings() {
 async function markCurrentHook() {
   const song = findSong(state.currentSongId);
   if (!song) {
-    window.alert("Play a song first, then press Mark Hook when the best part starts.");
+    toast("Play a song first, then press Mark Hook.", "warn");
     return;
   }
-  const suggestedLength = song.hookLength ?? (Number(els.hookLengthInput.value) || 30);
-  const answer = window.prompt("How many seconds should this hook play before the next song?", suggestedLength);
-  if (answer === null) return;
-  const hookLength = Number(answer);
-  if (!Number.isFinite(hookLength) || hookLength < 5) {
-    window.alert("Please enter a hook length of at least 5 seconds.");
-    return;
-  }
-  song.hookStart = Math.floor(els.audio.currentTime || 0);
-  song.hookLength = Math.floor(hookLength);
-  if (state.songs.some((item) => item.id === song.id)) await putItem(SONG_STORE, song);
-  await hydrate();
+  const hookStart = Math.floor(els.audio.currentTime || 0);
+  els.hookLengthPrompt.value = song.hookLength ?? (Number(els.hookLengthInput.value) || 30);
+
+  els.hookModal.classList.add("open");
+  els.hookModal.setAttribute("aria-hidden", "false");
+  els.hookLengthPrompt.focus();
+  els.hookLengthPrompt.select();
+
+  await new Promise((resolve) => {
+    const confirm = async () => {
+      const hookLength = Number(els.hookLengthPrompt.value);
+      if (!Number.isFinite(hookLength) || hookLength < 5) {
+        toast("Hook must be at least 5 seconds.", "warn");
+        closeHookModal();
+        resolve();
+        return;
+      }
+      song.hookStart = hookStart;
+      song.hookLength = Math.floor(hookLength);
+      if (state.songs.some((item) => item.id === song.id)) await putItem(SONG_STORE, song);
+      toast(`Hook set at ${formatTime(hookStart)} for ${Math.floor(hookLength)}s`);
+      closeHookModal();
+      await hydrate();
+      resolve();
+    };
+    const cancel = () => { closeHookModal(); resolve(); };
+    els.hookModalConfirm.onclick = confirm;
+    els.hookModalCancel.onclick = cancel;
+    els.hookModal.onclick = (e) => { if (e.target === els.hookModal) cancel(); };
+    els.hookLengthPrompt.onkeydown = (e) => { if (e.key === "Enter") confirm(); };
+  });
 }
 
 async function playRelative(offset) {
@@ -878,32 +931,49 @@ async function toggleLike(songId) {
   if (!song) return;
   song.liked = !song.liked;
   await putItem(SONG_STORE, song);
+  toast(song.liked ? `Liked "${song.title}"` : `Removed from liked`);
   await hydrate();
 }
 
 function addToQueue(songId) {
   state.queue.push(songId);
   saveJson(QUEUE_KEY, state.queue);
+  const song = allKnownSongs().find((s) => s.id === songId);
+  if (song) toast(`"${song.title}" added to queue`);
   render();
 }
 
 async function editSong(songId) {
   const song = state.songs.find((item) => item.id === songId);
   if (!song) return;
-  const title = window.prompt("Song title", song.title);
-  if (title === null) return;
-  const artist = window.prompt("Artist", song.artist || "Unknown artist");
-  if (artist === null) return;
-  const album = window.prompt("Album", song.album || "Local uploads");
-  if (album === null) return;
-  const mood = window.prompt("Mood: chill, focus, gym, party, or blank", song.mood || "");
-  if (mood === null) return;
-  song.title = title.trim() || song.title;
-  song.artist = artist.trim() || "Unknown artist";
-  song.album = album.trim() || "Local uploads";
-  song.mood = ["chill", "focus", "gym", "party"].includes(mood.trim().toLowerCase()) ? mood.trim().toLowerCase() : "";
-  await putItem(SONG_STORE, song);
-  await hydrate();
+
+  els.editTitle.value = song.title;
+  els.editArtist.value = song.artist || "";
+  els.editAlbum.value = song.album || "";
+  els.editMood.value = song.mood || "";
+
+  els.editModal.classList.add("open");
+  els.editModal.setAttribute("aria-hidden", "false");
+  els.editTitle.focus();
+
+  await new Promise((resolve) => {
+    const save = async () => {
+      song.title = els.editTitle.value.trim() || song.title;
+      song.artist = els.editArtist.value.trim() || "Unknown artist";
+      song.album = els.editAlbum.value.trim() || "Local uploads";
+      song.mood = els.editMood.value;
+      await putItem(SONG_STORE, song);
+      closeEditModal();
+      toast(`Updated "${song.title}"`);
+      await hydrate();
+      resolve();
+    };
+    const cancel = () => { closeEditModal(); resolve(); };
+    els.editModalSave.onclick = save;
+    els.editModalCancel.onclick = cancel;
+    els.editModal.onclick = (e) => { if (e.target === els.editModal) cancel(); };
+    els.editTitle.onkeydown = (e) => { if (e.key === "Enter") save(); };
+  });
 }
 
 async function movePlaylistSong(playlistId, songId, offset) {
@@ -920,6 +990,54 @@ async function movePlaylistSong(playlistId, songId, offset) {
 
 function applyTheme() {
   document.body.dataset.theme = state.settings.theme;
+}
+
+function toast(message, type = "") {
+  const el = document.createElement("div");
+  el.className = `toast${type ? ` toast-${type}` : ""}`;
+  el.textContent = message;
+  els.toastStack.appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+function openFullPlayer() {
+  els.fullPlayer.classList.add("open");
+  els.fullPlayer.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+}
+
+function closeFullPlayer() {
+  els.fullPlayer.classList.remove("open");
+  els.fullPlayer.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
+}
+
+function closeEditModal() {
+  els.editModal.classList.remove("open");
+  els.editModal.setAttribute("aria-hidden", "true");
+}
+
+function closeHookModal() {
+  els.hookModal.classList.remove("open");
+  els.hookModal.setAttribute("aria-hidden", "true");
+}
+
+function renderFullPlayer() {
+  const song = findSong(state.currentSongId);
+  if (els.fpCover) els.fpCover.setAttribute("style", coverStyleFor(song));
+  if (els.fpTitle) els.fpTitle.textContent = song ? song.title : "Nothing playing";
+  if (els.fpArtist) els.fpArtist.textContent = song ? (song.artist || "Unknown artist") : "—";
+  if (els.fpPlay) {
+    setIcon(els.fpPlay, els.audio.paused ? "icon-play" : "icon-pause");
+    els.fpPlay.setAttribute("aria-label", els.audio.paused ? "Play" : "Pause");
+  }
+  if (els.fpShuffle) els.fpShuffle.classList.toggle("active", state.shuffle);
+  if (els.fpRepeat) els.fpRepeat.classList.toggle("active", state.repeat !== "off");
+  if (els.fpLike) {
+    const liked = Boolean(state.songs.find((s) => s.id === song?.id)?.liked);
+    els.fpLike.classList.toggle("active", liked);
+    els.fpLike.setAttribute("aria-label", liked ? "Unlike" : "Like");
+  }
 }
 
 function setSleepTimer(minutes) {
@@ -1117,6 +1235,11 @@ function attachEvents() {
   els.importBackupInput.addEventListener("change", (event) => importBackup(event.target.files[0]));
 
   document.addEventListener("keydown", (event) => {
+    if (event.code === "Escape") {
+      if (els.fullPlayer?.classList.contains("open")) { closeFullPlayer(); return; }
+      if (els.editModal?.classList.contains("open")) { closeEditModal(); return; }
+      if (els.hookModal?.classList.contains("open")) { closeHookModal(); return; }
+    }
     if (["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
     if (event.code === "Space") {
       event.preventDefault();
@@ -1124,6 +1247,47 @@ function attachEvents() {
     }
     if (event.code === "ArrowRight") els.nextButton.click();
     if (event.code === "ArrowLeft") els.prevButton.click();
+  });
+
+  // Bottom nav
+  els.bnavItems.forEach((tab) => tab.addEventListener("click", () => setView(tab.dataset.view)));
+
+  // Mobile settings button
+  document.getElementById("mobileSettingsBtn")?.addEventListener("click", () => setView("settings"));
+
+  // Mini player expand — tap cover/title area on mobile
+  document.getElementById("nowPlayingArea")?.addEventListener("click", (e) => {
+    if (!e.target.closest("button")) openFullPlayer();
+  });
+  document.getElementById("miniExpand")?.addEventListener("click", openFullPlayer);
+
+  // Full player close
+  document.getElementById("closeFP")?.addEventListener("click", closeFullPlayer);
+  els.fullPlayer?.addEventListener("click", (e) => { if (e.target === els.fullPlayer) closeFullPlayer(); });
+
+  // Full player controls delegate to main controls
+  els.fpPlay?.addEventListener("click", () => els.playButton.click());
+  els.fpPrev?.addEventListener("click", () => els.prevButton.click());
+  els.fpNext?.addEventListener("click", () => els.nextButton.click());
+  els.fpShuffle?.addEventListener("click", () => els.shuffleButton.click());
+  els.fpRepeat?.addEventListener("click", () => els.repeatButton.click());
+
+  // Full player seek
+  els.fpProgress?.addEventListener("input", () => {
+    if (!els.audio.duration) return;
+    els.audio.currentTime = (Number(els.fpProgress.value) / 100) * els.audio.duration;
+    els.progressRange.value = els.fpProgress.value;
+  });
+
+  // Full player volume
+  els.fpVolume?.addEventListener("input", () => {
+    els.audio.volume = Number(els.fpVolume.value);
+    els.volumeRange.value = els.fpVolume.value;
+  });
+
+  // Full player like current song
+  els.fpLike?.addEventListener("click", () => {
+    if (state.currentSongId) toggleLike(state.currentSongId);
   });
 
   els.audio.addEventListener("play", renderNowPlaying);
@@ -1134,6 +1298,14 @@ function attachEvents() {
     els.progressRange.value = progress;
     els.currentTime.textContent = formatTime(els.audio.currentTime);
     els.durationTime.textContent = formatTime(els.audio.duration);
+    // Sync full player seek
+    if (els.fpProgress) els.fpProgress.value = progress;
+    if (els.fpCurrent) els.fpCurrent.textContent = formatTime(els.audio.currentTime);
+    if (els.fpDuration) els.fpDuration.textContent = formatTime(els.audio.duration);
+    // Mini player progress line
+    if (els.miniProgressLine) els.miniProgressLine.style.setProperty("--mp-progress", `${progress.toFixed(1)}%`);
+    // The CSS var is on the element itself, use width instead:
+    if (els.miniProgressLine) els.miniProgressLine.style.width = `${progress.toFixed(1)}%`;
 
     const song = findSong(state.currentSongId);
     if (!state.hookMode || !song) return;
