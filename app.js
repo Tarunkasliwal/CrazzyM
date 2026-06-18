@@ -22,6 +22,7 @@ const state = {
   repeat: "off",
   fallbackStartedAt: 0,
   sleepTimerId: null,
+  playerExpanded: false,
   objectUrls: new Map(),
   settings: {
     theme: "dark",
@@ -87,6 +88,11 @@ const els = {
   hookLengthInput: document.getElementById("hookLengthInput"),
   markHookButton: document.getElementById("markHookButton"),
   saveHookButton: document.getElementById("saveHookButton"),
+  hookShareBtn: document.getElementById("hookShareBtn"),
+  hookModeBanner: document.getElementById("hookModeBanner"),
+  hookZoneMarker: document.getElementById("hookZoneMarker"),
+  playerExpandBtn: document.getElementById("playerExpandBtn"),
+  playerExtras: document.getElementById("playerExtras"),
   progressRange: document.getElementById("progressRange"),
   currentTime: document.getElementById("currentTime"),
   durationTime: document.getElementById("durationTime"),
@@ -98,6 +104,7 @@ const els = {
   trackCount: document.getElementById("trackCount"),
   playlistCount: document.getElementById("playlistCount"),
   heroUploadButton: document.getElementById("heroUploadButton"),
+  playerBar: document.querySelector(".player-bar"),
 };
 
 let db;
@@ -312,6 +319,7 @@ function playlistOptions(selectedSongId) {
 function createTrackRow(song, queue, options = {}) {
   const row = els.trackTemplate.content.firstElementChild.cloneNode(true);
   row.classList.toggle("active", song.id === state.currentSongId);
+  row.classList.toggle("has-hook", hasSavedHook(song));
   row.querySelector(".track-meta strong").textContent = song.title;
   row.querySelector(".track-meta small").textContent = songSubtitle(song);
   row.querySelector(".track-album").textContent = song.album || "Local uploads";
@@ -417,6 +425,38 @@ function renderPlaylistDetail() {
   );
 }
 
+function updateHookZoneMarker() {
+  const song = state.songs.find((item) => item.id === state.currentSongId);
+  const duration = els.audio.duration;
+  const marker = els.hookZoneMarker;
+
+  if (!marker) return;
+
+  if (hasSavedHook(song) && duration && duration > 0) {
+    const startPct = (song.hookStart / duration) * 100;
+    const endPct = Math.min(100, ((song.hookStart + song.hookLength) / duration) * 100);
+    marker.style.left = `${startPct}%`;
+    marker.style.width = `${endPct - startPct}%`;
+    marker.style.display = "block";
+  } else {
+    marker.style.display = "none";
+  }
+}
+
+function updateHookModeBanner() {
+  if (!els.hookModeBanner || !els.playerBar) return;
+  els.hookModeBanner.classList.toggle("active", state.hookMode);
+  els.playerBar.classList.toggle("hook-active", state.hookMode);
+}
+
+function togglePlayerExpand() {
+  state.playerExpanded = !state.playerExpanded;
+  els.playerBar.classList.toggle("expanded", state.playerExpanded);
+  els.playerExpandBtn.classList.toggle("expanded", state.playerExpanded);
+  els.playerExpandBtn.setAttribute("title", state.playerExpanded ? "Less controls" : "More controls");
+  els.playerExpandBtn.setAttribute("aria-label", state.playerExpanded ? "Less controls" : "More controls");
+}
+
 function renderNowPlaying() {
   const song = state.songs.find((item) => item.id === state.currentSongId);
   els.nowTitle.textContent = song ? song.title : "Nothing playing";
@@ -433,6 +473,8 @@ function renderNowPlaying() {
   els.repeatButton.classList.toggle("active", state.repeat !== "off");
   els.repeatButton.setAttribute("title", state.repeat === "one" ? "Repeat one" : state.repeat === "all" ? "Repeat all" : "Repeat off");
   els.repeatButton.setAttribute("aria-label", els.repeatButton.getAttribute("title"));
+  updateHookZoneMarker();
+  updateHookModeBanner();
 }
 
 function renderCounts() {
@@ -550,6 +592,7 @@ async function playSong(songId, queue = state.songs) {
       } else {
         state.fallbackStartedAt = els.audio.currentTime || 0;
       }
+      updateHookZoneMarker();
     },
     { once: true }
   );
@@ -593,6 +636,33 @@ async function markCurrentHook() {
   song.hookLength = Math.floor(hookLength);
   await putItem(SONG_STORE, song);
   await hydrate();
+}
+
+async function shareHook() {
+  const song = state.songs.find((item) => item.id === state.currentSongId);
+  if (!song) {
+    window.alert("Play a song and mark its hook first.");
+    return;
+  }
+  if (!hasSavedHook(song)) {
+    window.alert("This song has no hook marked yet. Press Mark Hook to set one.");
+    return;
+  }
+
+  const start = formatTime(song.hookStart);
+  const end = formatTime(song.hookStart + song.hookLength);
+  const text = `🎯 "${song.title}" by ${song.artist || "Unknown artist"}\nHook: ${start} → ${end} (${song.hookLength}s)\n\nListened on PulseStream — your private local music studio.`;
+
+  try {
+    await navigator.clipboard.writeText(text);
+    const original = els.hookShareBtn.textContent;
+    els.hookShareBtn.textContent = "Copied!";
+    setTimeout(() => {
+      els.hookShareBtn.innerHTML = `<svg aria-hidden="true"><use href="#icon-share"></use></svg> Share`;
+    }, 1800);
+  } catch {
+    window.prompt("Copy this hook info:", text);
+  }
 }
 
 async function playRelative(offset) {
@@ -840,9 +910,18 @@ function attachEvents() {
     if (state.hookMode && song && hasSavedHook(song) && els.audio.duration) {
       els.audio.currentTime = Math.min(song.hookStart, Math.max(0, els.audio.duration - 1));
     }
+    updateHookModeBanner();
+    updateHookZoneMarker();
+    // Auto-expand player on mobile when hook mode is turned on
+    if (state.hookMode && !state.playerExpanded && window.innerWidth <= 560) {
+      togglePlayerExpand();
+    }
   });
   els.markHookButton.addEventListener("click", markCurrentHook);
   els.saveHookButton.addEventListener("click", saveCurrentHookSettings);
+  els.hookShareBtn.addEventListener("click", shareHook);
+  els.playerExpandBtn.addEventListener("click", togglePlayerExpand);
+
   els.sleepTimerSelect.addEventListener("change", () => setSleepTimer(Number(els.sleepTimerSelect.value)));
   els.themeSelect.addEventListener("change", () => {
     state.settings.theme = els.themeSelect.value;
